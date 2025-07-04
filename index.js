@@ -276,10 +276,6 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text, verb
 
   const data = await response.json()
 
-  /** if (verbose) {
-    logger.log('调用 google 接口获取的 data 数据: ', JSON.stringify(data), 'url', requestUrl)
-  } */
-
   if (data && data.length && Array.isArray(data)) {
     if (config.isTranslatePa) {
       return {
