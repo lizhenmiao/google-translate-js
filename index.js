@@ -133,6 +133,8 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
   }
 
   if (response.status !== 200) {
+    logger.error('请求失败，状态码：', response.status, '域名：', config.baseUrl)
+
     throw new Error(`请求失败，状态码：${response.status}，域名：${config.baseUrl}`)
   }
 
@@ -166,6 +168,7 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
     }
   }
 
+  logger.error('无返回数据')
   throw new Error('无返回数据')
 }
 
@@ -226,10 +229,12 @@ export async function translate(text, options = {}) {
   const { from = 'auto', to, verbose = false } = options
 
   if (!text) {
+    logger.error('缺少必需参数: text')
     throw new Error('缺少必需参数: text')
   }
 
   if (!to) {
+    logger.error('缺少必需参数: to')
     throw new Error('缺少必需参数: to')
   }
 
@@ -278,6 +283,7 @@ export async function translate(text, options = {}) {
   }
 
   const finalError = `所有翻译接口都失败了。尝试了 ${configs.length} 个配置:\n${errors.join('\n')}`
+  logger.error(finalError)
   throw new Error(finalError)
 }
 
