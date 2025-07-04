@@ -45,6 +45,7 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
   headers.append("Host", config.baseUrl);
 
   let response;
+  let requestUrl;
 
   if (config.isTranslatePa) {
     headers.append("X-Goog-API-Key", "AIzaSyATBXajvzQLTDHEQbcpq0Ihe0vWDHmO520");
@@ -52,7 +53,8 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
     
     const requestBody = `[[["${text}"], "${sourceLang}", "${targetLang}"], "wt_lib"]`;
     
-    response = await fetch(`https://${config.baseUrl}/v1/translateHtml`, {
+    requestUrl = `https://${config.baseUrl}/v1/translateHtml`;
+    response = await fetch(requestUrl, {
       method: "POST",
       headers,
       body: requestBody,
@@ -66,8 +68,9 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
     params.append("q", text);
 
     headers.append("Content-Type", "application/json");
-    
-    const url = `https://${config.baseUrl}/translate_a/${config.endpoint}?${params.toString()}`;
+
+    requestUrl = `https://${config.baseUrl}/translate_a/${config.endpoint}`;
+    const url = `${requestUrl}?${params.toString()}`;
     
     response = await fetch(url, {
       method: "POST",
@@ -82,7 +85,7 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
 
   const data = await response.json();
 
-  logger.log('调用 google 接口获取的 data 数据: ', JSON.stringify(data, null, 2));
+  logger.log('调用 google 接口获取的 data 数据: ', JSON.stringify(data), 'url', requestUrl);
 
   if (data && data.length && Array.isArray(data)) {
     if (config.isTranslatePa) {
