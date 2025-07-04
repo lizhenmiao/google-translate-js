@@ -85,9 +85,10 @@ const GOOGLE_TRANSLATE_CLIENTS = ['gtx', 'dict-chrome-ex']
  * @param {string} sourceLang - 源语言代码
  * @param {string} targetLang - 目标语言代码
  * @param {string} text - 待翻译文本
+ * @param {boolean} verbose - 是否启用详细日志
  * @returns {Promise<TranslateResult>} 翻译结果
  */
-async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
+async function tryTranslateWithConfig(config, sourceLang, targetLang, text, verbose) {
   const headers = new Headers()
   headers.append(
     'User-Agent',
@@ -133,14 +134,18 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
   }
 
   if (response.status !== 200) {
-    logger.error('请求失败，状态码：', response.status, '域名：', config.baseUrl)
+    if (verbose) {
+      logger.error('请求失败，状态码：', response.status, '域名：', config.baseUrl)
+    }
 
     throw new Error(`请求失败，状态码：${response.status}，域名：${config.baseUrl}`)
   }
 
   const data = await response.json()
 
-  logger.log('调用 google 接口获取的 data 数据: ', JSON.stringify(data), 'url', requestUrl)
+  if (verbose) {
+    logger.log('调用 google 接口获取的 data 数据: ', JSON.stringify(data), 'url', requestUrl)
+  }
 
   if (data && data.length && Array.isArray(data)) {
     if (config.isTranslatePa) {
@@ -168,7 +173,10 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
     }
   }
 
-  logger.error('无返回数据')
+  if (verbose) {
+    logger.error('无返回数据')
+  }
+
   throw new Error('无返回数据')
 }
 
@@ -229,12 +237,18 @@ export async function translate(text, options = {}) {
   const { from = 'auto', to, verbose = false } = options
 
   if (!text) {
-    logger.error('缺少必需参数: text')
+    if (verbose) {
+      logger.error('缺少必需参数: text')
+    }
+
     throw new Error('缺少必需参数: text')
   }
 
   if (!to) {
-    logger.error('缺少必需参数: to')
+    if (verbose) {
+      logger.error('缺少必需参数: to')
+    }
+
     throw new Error('缺少必需参数: to')
   }
 
@@ -242,7 +256,7 @@ export async function translate(text, options = {}) {
   const errors = []
 
   if (verbose) {
-    console.log(`开始翻译: ${from} -> ${to}, 文本长度: ${text.length}`)
+    logger.log(`开始翻译: ${from} -> ${to}, 文本长度: ${text.length}`)
   }
 
   for (let i = 0; i < configs.length; i++) {
@@ -257,7 +271,7 @@ export async function translate(text, options = {}) {
         )
       }
 
-      const result = await tryTranslateWithConfig(config, from, to, text)
+      const result = await tryTranslateWithConfig(config, from, to, text, verbose)
 
       if (verbose) {
         logger.log(
@@ -283,7 +297,11 @@ export async function translate(text, options = {}) {
   }
 
   const finalError = `所有翻译接口都失败了。尝试了 ${configs.length} 个配置:\n${errors.join('\n')}`
-  logger.error(finalError)
+
+  if (verbose) {
+    logger.error(finalError)
+  }
+
   throw new Error(finalError)
 }
 
