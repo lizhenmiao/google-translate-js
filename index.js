@@ -7,8 +7,27 @@ class Logger {
     this.listeners.push(callback);
   }
   
-  log(message, level = 'info') {
-    this.listeners.forEach(callback => callback(message, level));
+  log(...args) {
+    // 将所有参数合并为一个消息
+    const message = args.map(arg => 
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+    ).join(' ');
+    
+    this.listeners.forEach(callback => callback(message, 'info'));
+  }
+  
+  debug(...args) {
+    const message = args.map(arg => 
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+    ).join(' ');
+    this.listeners.forEach(callback => callback(message, 'debug'));
+  }
+  
+  error(...args) {
+    const message = args.map(arg => 
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+    ).join(' ');
+    this.listeners.forEach(callback => callback(message, 'error'));
   }
 }
 
