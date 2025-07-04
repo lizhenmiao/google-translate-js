@@ -79,6 +79,139 @@ const GOOGLE_TRANSLATE_BASE_URLS = [
 const GOOGLE_TRANSLATE_ENDPOINTS = ['single', 't']
 const GOOGLE_TRANSLATE_CLIENTS = ['gtx', 'dict-chrome-ex']
 
+// 预生成所有可能的配置并缓存
+const ALL_CONFIGS_CACHE = (() => {
+  const configs = []
+
+  // 添加 translate-pa.googleapis.com
+  configs.push({
+    baseUrl: 'translate-pa.googleapis.com',
+    isTranslatePa: true
+  })
+
+  // 添加其他普通配置
+  const otherUrls = GOOGLE_TRANSLATE_BASE_URLS.filter(
+    url => url !== 'translate-pa.googleapis.com'
+  )
+
+  for (const baseUrl of otherUrls) {
+    for (const endpoint of GOOGLE_TRANSLATE_ENDPOINTS) {
+      for (const client of GOOGLE_TRANSLATE_CLIENTS) {
+        configs.push({
+          baseUrl,
+          endpoint,
+          client,
+          isTranslatePa: false
+        })
+      }
+    }
+  }
+
+  return configs
+})()
+
+/**
+ * 验证配置是否有效
+ * @param {Object} config - 待验证的配置
+ * @returns {boolean} 是否有效
+ */
+function isValidConfig(config) {
+  if (!config || typeof config !== 'object') {
+    return false
+  }
+
+  // 检查 baseUrl 是否在有效列表中
+  if (!config.baseUrl || !GOOGLE_TRANSLATE_BASE_URLS.includes(config.baseUrl)) {
+    return false
+  }
+
+  // 如果是 translate-pa.googleapis.com，不需要检查其他字段
+  if (config.baseUrl === 'translate-pa.googleapis.com') {
+    return true
+  }
+
+  // 检查 endpoint 是否在有效列表中
+  if (!config.endpoint || !GOOGLE_TRANSLATE_ENDPOINTS.includes(config.endpoint)) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * 生成翻译接口配置数组（优化版）
+ * @param {Object} [preferredConfig] - 优先使用的配置
+ * @param {string} [preferredConfig.baseUrl] - 优先的域名
+ * @param {string} [preferredConfig.endpoint] - 优先的端点
+ * @param {boolean} [randomizeAll=false] - 是否完全随机化所有配置
+ * @param {boolean} [verbose=false] - 是否启用详细日志
+ * @returns {TranslateConfig[]} 配置数组，按优先级排序
+ */
+function generateTranslateConfigs(preferredConfig = null, randomizeAll = false, verbose = false) {
+  const configs = []
+  let useRandomOrder = randomizeAll
+
+  // 如果指定了优先配置，先验证
+  if (preferredConfig && !randomizeAll) {
+    if (!isValidConfig(preferredConfig)) {
+      if (verbose) {
+        logger.error(`无效的优先配置: ${JSON.stringify(preferredConfig)}`)
+        logger.log('将使用随机配置顺序')
+      }
+      // 验证失败，使用随机顺序
+      useRandomOrder = true
+    } else {
+      // 验证通过，添加优先配置
+      if (preferredConfig.baseUrl === 'translate-pa.googleapis.com') {
+        configs.push({
+          baseUrl: 'translate-pa.googleapis.com',
+          isTranslatePa: true
+        })
+      } else {
+        configs.push({
+          baseUrl: preferredConfig.baseUrl,
+          endpoint: preferredConfig.endpoint,
+          client: GOOGLE_TRANSLATE_CLIENTS[0], // 使用第一个客户端
+          isTranslatePa: false
+        })
+      }
+
+      if (verbose) {
+        logger.log(`使用优先配置: ${preferredConfig.baseUrl}${preferredConfig.endpoint ? `/${preferredConfig.endpoint}` : ''}`)
+      }
+    }
+  }
+
+  // 如果没有随机化，且没有有效的优先配置，则使用默认的最高优先级
+  if (!useRandomOrder && configs.length === 0) {
+    configs.push({
+      baseUrl: 'translate-pa.googleapis.com',
+      isTranslatePa: true
+    })
+  }
+
+  // 从缓存中获取其他配置
+  const otherConfigs = ALL_CONFIGS_CACHE.filter(config => {
+    // 过滤掉已经添加的配置
+    return !configs.some(existingConfig =>
+      existingConfig.baseUrl === config.baseUrl &&
+      existingConfig.endpoint === config.endpoint &&
+      existingConfig.client === config.client &&
+      existingConfig.isTranslatePa === config.isTranslatePa
+    )
+  })
+
+  // 如果使用随机顺序，或者需要打乱其他配置
+  if (useRandomOrder || otherConfigs.length > 1) {
+    for (let i = otherConfigs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [otherConfigs[i], otherConfigs[j]] = [otherConfigs[j], otherConfigs[i]]
+    }
+  }
+
+  return [...configs, ...otherConfigs]
+}
+
 /**
  * 尝试使用指定配置进行翻译
  * @param {TranslateConfig} config - 翻译接口配置
@@ -181,95 +314,6 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text, verb
 }
 
 /**
- * 生成所有可能的翻译接口配置组合
- * @param {Object} [preferredConfig] - 优先使用的配置
- * @param {string} [preferredConfig.baseUrl] - 优先的域名
- * @param {string} [preferredConfig.endpoint] - 优先的端点
- * @param {boolean} [randomizeAll=false] - 是否完全随机化所有配置
- * @returns {TranslateConfig[]} 配置数组，按优先级排序
- */
-function generateTranslateConfigs(preferredConfig = null, randomizeAll = false) {
-  const configs = []
-
-  // 如果指定了优先配置，先找到匹配的配置
-  if (preferredConfig && !randomizeAll) {
-    // 检查是否是 translate-pa.googleapis.com
-    if (preferredConfig.baseUrl === 'translate-pa.googleapis.com') {
-      configs.push({
-        baseUrl: 'translate-pa.googleapis.com',
-        isTranslatePa: true
-      })
-    } else {
-      // 查找匹配的普通配置
-      const matchingConfig = {
-        baseUrl: preferredConfig.baseUrl,
-        endpoint: preferredConfig.endpoint,
-        client: GOOGLE_TRANSLATE_CLIENTS[0], // 使用第一个客户端
-        isTranslatePa: false
-      }
-      configs.push(matchingConfig)
-    }
-  }
-
-  // 如果不是完全随机化，且没有指定优先配置，则使用默认的最高优先级
-  if (!randomizeAll && !preferredConfig) {
-    configs.push({
-      baseUrl: 'translate-pa.googleapis.com',
-      isTranslatePa: true
-    })
-  }
-
-  // 添加其他所有配置
-  const otherConfigs = []
-
-  // 添加 translate-pa.googleapis.com（如果还没添加）
-  const hasTranslatePa = configs.some(config => config.isTranslatePa)
-  if (!hasTranslatePa) {
-    otherConfigs.push({
-      baseUrl: 'translate-pa.googleapis.com',
-      isTranslatePa: true
-    })
-  }
-
-  // 添加其他普通配置
-  const otherUrls = GOOGLE_TRANSLATE_BASE_URLS.filter(
-    url => url !== 'translate-pa.googleapis.com'
-  )
-
-  for (const baseUrl of otherUrls) {
-    for (const endpoint of GOOGLE_TRANSLATE_ENDPOINTS) {
-      for (const client of GOOGLE_TRANSLATE_CLIENTS) {
-        const config = {
-          baseUrl,
-          endpoint,
-          client,
-          isTranslatePa: false
-        }
-        
-        // 如果这个配置已经作为优先配置添加了，就跳过
-        const isDuplicate = configs.some(existingConfig => 
-          existingConfig.baseUrl === config.baseUrl && 
-          existingConfig.endpoint === config.endpoint &&
-          existingConfig.client === config.client
-        )
-        
-        if (!isDuplicate) {
-          otherConfigs.push(config)
-        }
-      }
-    }
-  }
-
-  // 随机打乱其他配置
-  for (let i = otherConfigs.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [otherConfigs[i], otherConfigs[j]] = [otherConfigs[j], otherConfigs[i]]
-  }
-
-  return [...configs, ...otherConfigs]
-}
-
-/**
  * 调用 Google 翻译接口进行翻译（支持智能重试）
  * @param {string} text - 待翻译文本
  * @param {Object} options - 翻译选项
@@ -284,12 +328,12 @@ function generateTranslateConfigs(preferredConfig = null, randomizeAll = false) 
  * @throws {Error} 当所有接口都失败时抛出错误
  */
 export async function translate(text, options = {}) {
-  const { 
-    from = 'auto', 
-    to, 
-    verbose = false, 
+  const {
+    from = 'auto',
+    to,
+    verbose = false,
     preferredConfig = null,
-    randomizeAll = false 
+    randomizeAll = false
   } = options
 
   if (!text) {
@@ -306,14 +350,12 @@ export async function translate(text, options = {}) {
     throw new Error('缺少必需参数: to')
   }
 
-  const configs = generateTranslateConfigs(preferredConfig, randomizeAll)
+  const configs = generateTranslateConfigs(preferredConfig, randomizeAll, verbose)
   const errors = []
 
   if (verbose) {
     logger.log(`开始翻译: ${from} -> ${to}, 文本长度: ${text.length}`)
-    if (preferredConfig) {
-      logger.log(`优先使用配置: ${preferredConfig.baseUrl}${preferredConfig.endpoint ? `/${preferredConfig.endpoint}` : ''}`)
-    }
+    logger.log(`生成了 ${configs.length} 个配置`)
     if (randomizeAll) {
       logger.log('使用完全随机化配置顺序')
     }
