@@ -182,45 +182,91 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text, verb
 
 /**
  * 生成所有可能的翻译接口配置组合
+ * @param {Object} [preferredConfig] - 优先使用的配置
+ * @param {string} [preferredConfig.baseUrl] - 优先的域名
+ * @param {string} [preferredConfig.endpoint] - 优先的端点
+ * @param {boolean} [randomizeAll=false] - 是否完全随机化所有配置
  * @returns {TranslateConfig[]} 配置数组，按优先级排序
  */
-function generateTranslateConfigs() {
+function generateTranslateConfigs(preferredConfig = null, randomizeAll = false) {
   const configs = []
 
-  // 优先级最高的配置
-  configs.push({
-    baseUrl: 'translate-pa.googleapis.com',
-    isTranslatePa: true
-  })
+  // 如果指定了优先配置，先找到匹配的配置
+  if (preferredConfig && !randomizeAll) {
+    // 检查是否是 translate-pa.googleapis.com
+    if (preferredConfig.baseUrl === 'translate-pa.googleapis.com') {
+      configs.push({
+        baseUrl: 'translate-pa.googleapis.com',
+        isTranslatePa: true
+      })
+    } else {
+      // 查找匹配的普通配置
+      const matchingConfig = {
+        baseUrl: preferredConfig.baseUrl,
+        endpoint: preferredConfig.endpoint,
+        client: GOOGLE_TRANSLATE_CLIENTS[0], // 使用第一个客户端
+        isTranslatePa: false
+      }
+      configs.push(matchingConfig)
+    }
+  }
 
-  // 其他配置
+  // 如果不是完全随机化，且没有指定优先配置，则使用默认的最高优先级
+  if (!randomizeAll && !preferredConfig) {
+    configs.push({
+      baseUrl: 'translate-pa.googleapis.com',
+      isTranslatePa: true
+    })
+  }
+
+  // 添加其他所有配置
+  const otherConfigs = []
+
+  // 添加 translate-pa.googleapis.com（如果还没添加）
+  const hasTranslatePa = configs.some(config => config.isTranslatePa)
+  if (!hasTranslatePa) {
+    otherConfigs.push({
+      baseUrl: 'translate-pa.googleapis.com',
+      isTranslatePa: true
+    })
+  }
+
+  // 添加其他普通配置
   const otherUrls = GOOGLE_TRANSLATE_BASE_URLS.filter(
-    (url) => url !== 'translate-pa.googleapis.com'
+    url => url !== 'translate-pa.googleapis.com'
   )
 
   for (const baseUrl of otherUrls) {
     for (const endpoint of GOOGLE_TRANSLATE_ENDPOINTS) {
       for (const client of GOOGLE_TRANSLATE_CLIENTS) {
-        configs.push({
+        const config = {
           baseUrl,
           endpoint,
           client,
           isTranslatePa: false
-        })
+        }
+        
+        // 如果这个配置已经作为优先配置添加了，就跳过
+        const isDuplicate = configs.some(existingConfig => 
+          existingConfig.baseUrl === config.baseUrl && 
+          existingConfig.endpoint === config.endpoint &&
+          existingConfig.client === config.client
+        )
+        
+        if (!isDuplicate) {
+          otherConfigs.push(config)
+        }
       }
     }
   }
 
-  // 随机打乱顺序（除了第一个优先级最高的配置）
-  const firstConfig = configs[0]
-  const otherConfigs = configs.slice(1)
-
+  // 随机打乱其他配置
   for (let i = otherConfigs.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [otherConfigs[i], otherConfigs[j]] = [otherConfigs[j], otherConfigs[i]]
   }
 
-  return [firstConfig, ...otherConfigs]
+  return [...configs, ...otherConfigs]
 }
 
 /**
@@ -230,17 +276,26 @@ function generateTranslateConfigs() {
  * @param {string} [options.from="auto"] - 源语言代码
  * @param {string} options.to - 目标语言代码（必需）
  * @param {boolean} [options.verbose=false] - 是否启用详细日志
+ * @param {Object} [options.preferredConfig] - 优先使用的配置
+ * @param {string} [options.preferredConfig.baseUrl] - 优先的域名
+ * @param {string} [options.preferredConfig.endpoint] - 优先的端点
+ * @param {boolean} [options.randomizeAll=false] - 是否完全随机化所有配置（无固定优先级）
  * @returns {Promise<TranslateResult>} 翻译结果
  * @throws {Error} 当所有接口都失败时抛出错误
  */
 export async function translate(text, options = {}) {
-  const { from = 'auto', to, verbose = false } = options
+  const { 
+    from = 'auto', 
+    to, 
+    verbose = false, 
+    preferredConfig = null,
+    randomizeAll = false 
+  } = options
 
   if (!text) {
     if (verbose) {
       logger.error('缺少必需参数: text')
     }
-
     throw new Error('缺少必需参数: text')
   }
 
@@ -248,15 +303,20 @@ export async function translate(text, options = {}) {
     if (verbose) {
       logger.error('缺少必需参数: to')
     }
-
     throw new Error('缺少必需参数: to')
   }
 
-  const configs = generateTranslateConfigs()
+  const configs = generateTranslateConfigs(preferredConfig, randomizeAll)
   const errors = []
 
   if (verbose) {
     logger.log(`开始翻译: ${from} -> ${to}, 文本长度: ${text.length}`)
+    if (preferredConfig) {
+      logger.log(`优先使用配置: ${preferredConfig.baseUrl}${preferredConfig.endpoint ? `/${preferredConfig.endpoint}` : ''}`)
+    }
+    if (randomizeAll) {
+      logger.log('使用完全随机化配置顺序')
+    }
   }
 
   for (let i = 0; i < configs.length; i++) {
