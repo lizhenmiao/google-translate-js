@@ -1,3 +1,19 @@
+class Logger {
+  constructor() {
+    this.listeners = [];
+  }
+  
+  on(callback) {
+    this.listeners.push(callback);
+  }
+  
+  log(message, level = 'info') {
+    this.listeners.forEach(callback => callback(message, level));
+  }
+}
+
+export const logger = new Logger();
+
 // Google 翻译核心模块
 const GOOGLE_TRANSLATE_BASE_URLS = [
   "translate.googleapis.com",
@@ -65,6 +81,8 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text) {
   }
 
   const data = await response.json();
+
+  logger.log('调用 google 接口获取的 data 数据: ', JSON.stringify(data, null, 2));
 
   if (data && data.length && Array.isArray(data)) {
     if (config.isTranslatePa) {
@@ -171,7 +189,7 @@ export async function translate(text, options = {}) {
 
     try {
       if (verbose) {
-        console.log(
+        logger.log(
           `尝试配置 ${i + 1}/${configs.length}: ${config.baseUrl}${
             config.endpoint ? `/${config.endpoint}` : ""
           }`
@@ -181,7 +199,7 @@ export async function translate(text, options = {}) {
       const result = await tryTranslateWithConfig(config, from, to, text);
 
       if (verbose) {
-        console.log(
+        logger.log(
           `翻译成功! 使用配置: ${config.baseUrl}${
             config.endpoint ? `/${config.endpoint}` : ""
           }`
@@ -194,7 +212,7 @@ export async function translate(text, options = {}) {
       errors.push(`配置${i + 1}(${config.baseUrl}): ${errorMsg}`);
 
       if (verbose) {
-        console.log(`配置 ${i + 1} 失败: ${errorMsg}`);
+        logger.log(`配置 ${i + 1} 失败: ${errorMsg}`);
       }
 
       if (i < configs.length - 1) {
