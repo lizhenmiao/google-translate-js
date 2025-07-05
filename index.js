@@ -466,50 +466,52 @@ export async function parseTranslateParams(c, ACCESS_TOKEN) {
 
 /**
  * 获取 API 文档
- * @param {Object} param0 - 参数对象
- * @param {string} param0.description - 描述
- * @param {string} param0.version - 版本
+ * @param {string} description - 描述
+ * @param {string} version - 版本
  * @returns {Object} API 文档
  */
-export function getApiDoc({ description = 'Google 翻译服务', version = '1.0.0' } = {}) {
-  return {
-    name: 'Google 翻译 API',
-    version,
-    description,
-    endpoints: {
-      '/translate': {
-        methods: ['GET', 'POST'],
-        description: '翻译文本',
-        parameters: {
-          text: '要翻译的文本（必需）',
-          source_lang: '源语言代码（可选，默认为 auto）',
-          target_lang: '目标语言代码（必需）'
-        },
-        examples: {
-          get: '/translate?text=Hello&source_lang=en&target_lang=zh&token=your_access_token',
-          post: {
-            url: '/translate',
-            body: { text: 'Hello', source_lang: 'en', target_lang: 'zh' },
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer your_access_token'
+export function getApiDoc(description = 'Google 翻译服务', version = '1.0.0') {
+  return (c) => {
+    return c.json({
+      name: 'Google 翻译 API',
+      version,
+      description,
+      endpoints: {
+        '/translate': {
+          methods: ['GET', 'POST'],
+          description: '翻译文本',
+          parameters: {
+            text: '要翻译的文本（必需）',
+            source_lang: '源语言代码（可选，默认为 auto）',
+            target_lang: '目标语言代码（必需）'
+          },
+          examples: {
+            get: '/translate?text=Hello&source_lang=en&target_lang=zh&token=your_access_token',
+            post: {
+              url: '/translate',
+              body: { text: 'Hello', source_lang: 'en', target_lang: 'zh' },
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer your_access_token'
+              }
             }
           }
+        },
+        '/health': {
+          methods: ['GET'],
+          description: '健康检查'
         }
-      },
-      '/health': {
-        methods: ['GET'],
-        description: '健康检查'
       }
-    }
+    })
   }
 }
 
 /**
  * 健康检查处理函数
- * @param serviceName 服务名称，默认为 "Service is running"
+ * @param serviceName 服务名称，默认为 "Service is running..."
+ * @returns {Object} 健康检查结果
  */
-export function healthCheckHandler(serviceName = 'Service is running') {
+export function healthCheckHandler(serviceName = 'Service is running...') {
   return (c) => {
     return c.json({
       status: 'ok',
