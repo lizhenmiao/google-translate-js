@@ -1,5 +1,9 @@
 import { Hono } from "https://deno.land/x/hono@v4.3.11/mod.ts";
-import { logger, createCorsMiddleware, healthCheckHandler, handleTranslateRequest, getApiDoc } from "https://fastly.jsdelivr.net/gh/lizhenmiao/google-translate-js@main/index.js";
+// https://fastly.jsdelivr.net/gh/lizhenmiao/google-translate-js@main/index.js
+// https://cdn.jsdelivr.net/gh/lizhenmiao/google-translate-js@main/index.js
+// https://gcore.jsdelivr.net/gh/lizhenmiao/google-translate-js@main/index.js
+// https://cdn.statically.io/gh/lizhenmiao/google-translate-js/main/index.js
+import { logger, createCorsMiddleware, healthCheckHandler, handleTranslateRequest, getApiDoc } from "https://raw.githubusercontent.com/lizhenmiao/google-translate-js/refs/heads/main/index.js";
 
 const app = new Hono();
 const ACCESS_TOKEN = Deno.env.get("ACCESS_TOKEN") || "";
