@@ -246,6 +246,7 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text, verb
 
   let response
   let requestUrl
+  let data = null
 
   if (config.isTranslatePa) {
     headers.append('X-Goog-API-Key', 'AIzaSyATBXajvzQLTDHEQbcpq0Ihe0vWDHmO520')
@@ -287,39 +288,48 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text, verb
     throw new Error(`请求失败，状态码：${response.status}，域名：${config.baseUrl}`)
   }
 
-  const data = await response.json()
+  try {
+    data = await response.json()
 
-  if (data && data.length && Array.isArray(data)) {
-    if (config.isTranslatePa) {
-      return {
-        text: getValue(data, '[0][0]', ''),
-        sourceLang: getValue(data, '[1][0]', '') || sourceLang,
-        targetLang
+    if (data && data.length && Array.isArray(data)) {
+      if (config.isTranslatePa) {
+        return {
+          text: getValue(data, '[0][0]', ''),
+          sourceLang: getValue(data, '[1][0]', '') || sourceLang,
+          targetLang
+        }
+      }
+
+      if (config.endpoint === 'single') {
+        return {
+          text: (getValue(data, '[0]', null) || []).map(item => getValue(item, '[0]', '') || '').join(''),
+          sourceLang: getValue(data, '[2]', null) || sourceLang,
+          targetLang
+        }
+      }
+
+      if (config.endpoint === 't') {
+        return {
+          text: getValue(data, '[0][0]', ''),
+          sourceLang: getValue(data, '[0][1]', '') || sourceLang,
+          targetLang
+        }
       }
     }
 
-    if (config.endpoint === 'single') {
-      return {
-        text: (getValue(data, '[0]', null) || []).map(item => getValue(item, '[0]', '') || '').join(''),
-        sourceLang: getValue(data, '[2]', null) || sourceLang,
-        targetLang
-      }
+    if (verbose) {
+      logger.error('无返回数据')
     }
 
-    if (config.endpoint === 't') {
-      return {
-        text: getValue(data, '[0][0]', ''),
-        sourceLang: getValue(data, '[0][1]', '') || sourceLang,
-        targetLang
-      }
+    throw new Error('无返回数据')
+  } catch (error) {
+    if (verbose) {
+      logger.error('处理响应数据时出错:', error)
+      logger.error('响应数据:', JSON.stringify(data))
     }
+
+    throw error
   }
-
-  if (verbose) {
-    logger.error('无返回数据')
-  }
-
-  throw new Error('无返回数据')
 }
 
 /**
