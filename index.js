@@ -3,31 +3,36 @@ class Logger {
     this.listeners = []
   }
 
+  // 注册监听器，监听器会接收到 (level, ...args)
   on(callback) {
     this.listeners.push(callback)
   }
 
-  log(...args) {
-    // 将所有参数合并为一个消息
-    const message = args.map(arg =>
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-    ).join(' ')
+  // 通用的触发方法，通知所有监听器
+  _notify(level, args) {
+    this.listeners.forEach(listener => {
+      try {
+        listener(level, ...args)
+      } catch (e) {
+        // 避免某个监听器异常影响其他监听器
+        console.error('Logger listener error:', e)
+      }
+    })
+  }
 
-    this.listeners.forEach(callback => callback(message, 'info'))
+  log(...args) {
+    console.log(...args)
+    this._notify('log', args)
   }
 
   debug(...args) {
-    const message = args.map(arg =>
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-    ).join(' ')
-    this.listeners.forEach(callback => callback(message, 'debug'))
+    console.debug(...args)
+    this._notify('debug', args)
   }
 
   error(...args) {
-    const message = args.map(arg =>
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-    ).join(' ')
-    this.listeners.forEach(callback => callback(message, 'error'))
+    console.error(...args)
+    this._notify('error', args)
   }
 }
 
