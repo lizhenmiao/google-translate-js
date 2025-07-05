@@ -1,5 +1,5 @@
 import { Hono } from "https://deno.land/x/hono@v4.3.11/mod.ts";
-import { translate, logger, createCorsMiddleware, healthCheckHandler, parseTranslateParams, getApiDoc } from "https://fastly.jsdelivr.net/gh/lizhenmiao/google-translate-js@main/index.js";
+import { logger, createCorsMiddleware, healthCheckHandler, handleTranslateRequest, getApiDoc } from "https://fastly.jsdelivr.net/gh/lizhenmiao/google-translate-js@main/index.js";
 
 const app = new Hono();
 const ACCESS_TOKEN = Deno.env.get("ACCESS_TOKEN") || "";
@@ -13,56 +13,15 @@ logger.on((message, level) => {
 app.use("*", createCorsMiddleware());
 
 // 健康检查
-app.get("/health", healthCheckHandler("Google Translate API"));
+app.get("/health", healthCheckHandler());
 
 // 翻译接口
 app.route("/translate")
-  .get(async (c) => {
-    const { text, source_lang, target_lang } = await parseTranslateParams(c, ACCESS_TOKEN);
-
-    const googleResult = await translate(text, {
-      from: source_lang,
-      to: target_lang,
-      verbose: true
-    });
-
-    return c.json({
-      code: 200,
-      alternatives: [],
-      data: googleResult.text,
-      source_lang: googleResult.sourceLang,
-      target_lang: googleResult.targetLang,
-      id: Date.now(),
-      method: "Free"
-    });
-  })
-  .post(async (c) => {
-    const { text, source_lang, target_lang } = await parseTranslateParams(c, ACCESS_TOKEN);
-
-    const googleResult = await translate(text, {
-      from: source_lang,
-      to: target_lang,
-      verbose: true
-    });
-
-    return c.json({
-      code: 200,
-      alternatives: [],
-      data: googleResult.text,
-      source_lang: googleResult.sourceLang,
-      target_lang: googleResult.targetLang,
-      id: Date.now(),
-      method: "Free"
-    });
-  });
+  .get(async (c) => handleTranslateRequest(c, ACCESS_TOKEN))
+  .post(async (c) => handleTranslateRequest(c, ACCESS_TOKEN));
 
 // API 文档
-app.get("/", (c) => {
-  return c.json(getApiDoc({
-    description: "基于 Cloudflare Worker + Hono 的 Google 翻译服务",
-    version: "1.0.0",
-  }));
-});
+app.get("/", getApiDoc("基于 Cloudflare Worker + Hono 的 Google 翻译服务", "1.0.0"));
 
 // 404 处理
 app.all("*", (c) => c.json({
