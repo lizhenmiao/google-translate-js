@@ -3,38 +3,38 @@ class Logger {
     this.listeners = []
   }
 
-  // 注册监听器，监听器会接收到 (level, ...args)
   on(callback) {
-    this.listeners.push(callback)
+    if (typeof callback === 'function') {
+      this.listeners.push(callback)
+    }
   }
 
-  // 通用的触发方法，通知所有监听器
-  _notify(level, args) {
+  // 通用的日志处理方法
+  _emit(level, ...args) {
+    // 通知所有监听器，传递日志级别和参数
     this.listeners.forEach(listener => {
       try {
         listener(level, ...args)
       } catch (e) {
-        // 避免某个监听器异常影响其他监听器
         console.error('Logger listener error:', e)
       }
     })
   }
 
-  log(...args) {
-    console.log(...args)
-    this._notify('log', args)
-  }
-
-  debug(...args) {
-    console.debug(...args)
-    this._notify('debug', args)
-  }
-
   error(...args) {
-    console.error(...args)
-    this._notify('error', args)
+    this._emit('error', ...args)
+  }
+
+  warn(...args) {
+    this._emit('warn', ...args)
+  }
+
+  info(...args) {
+    this._emit('info', ...args)
   }
 }
+
+export const logger = new Logger()
 
 function getValue(data, path, defaultValue = null) {
   if (!path) return data === undefined ? defaultValue : data
@@ -45,32 +45,39 @@ function getValue(data, path, defaultValue = null) {
 
   // 正则匹配点分割和方括号里的键名
   const regex = /[^.\[\]]+|\[(\d+|".*?"|'.*?')\]/g
+
   let match
+
   while ((match = regex.exec(path)) !== null) {
     let key = match[0]
+
     if (key.startsWith('[')) {
       // 去掉方括号和引号
       key = key.slice(1, -1)
+
       if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
         key = key.slice(1, -1)
       }
     }
+
     // 数字字符串转数字
     if (/^\d+$/.test(key)) key = Number(key)
+
     keys.push(key)
   }
 
   let result = data
+
   for (const key of keys) {
     if (result == null || !(key in result)) {
       return defaultValue
     }
+
     result = result[key]
   }
+
   return result === undefined ? defaultValue : result
 }
-
-export const logger = new Logger()
 
 // Google 翻译核心模块
 const GOOGLE_TRANSLATE_BASE_URLS = [
@@ -161,7 +168,8 @@ function generateTranslateConfigs(preferredConfig = null, randomizeAll = false, 
     if (!isValidConfig(preferredConfig)) {
       if (verbose) {
         logger.error(`无效的优先配置: ${JSON.stringify(preferredConfig)}`)
-        logger.log('将使用随机配置顺序')
+
+        logger.info('将使用随机配置顺序')
       }
       // 验证失败，使用随机顺序
       useRandomOrder = true
@@ -182,7 +190,7 @@ function generateTranslateConfigs(preferredConfig = null, randomizeAll = false, 
       }
 
       if (verbose) {
-        logger.log(`使用优先配置: ${preferredConfig.baseUrl}${preferredConfig.endpoint ? `/${preferredConfig.endpoint}` : ''}`)
+        logger.info(`使用优先配置: ${preferredConfig.baseUrl}${preferredConfig.endpoint ? `/${preferredConfig.endpoint}` : ''}`)
       }
     }
   }
@@ -355,10 +363,10 @@ export async function translate(text, options = {}) {
   const errors = []
 
   if (verbose) {
-    logger.log(`开始翻译: ${from} -> ${to}, 文本长度: ${text.length}`)
-    logger.log(`生成了 ${configs.length} 个配置`)
+    logger.info(`开始翻译: ${from} -> ${to}, 文本长度: ${text.length}`)
+    logger.info(`生成了 ${configs.length} 个配置`)
     if (randomizeAll) {
-      logger.log('使用完全随机化配置顺序')
+      logger.info('使用完全随机化配置顺序')
     }
   }
 
@@ -367,7 +375,7 @@ export async function translate(text, options = {}) {
 
     try {
       if (verbose) {
-        logger.log(
+        logger.info(
           `尝试配置 ${i + 1}/${configs.length}: ${config.baseUrl}${
             config.endpoint ? `/${config.endpoint}` : ''
           }`
@@ -377,7 +385,7 @@ export async function translate(text, options = {}) {
       const result = await tryTranslateWithConfig(config, from, to, text, verbose)
 
       if (verbose) {
-        logger.log(
+        logger.info(
           `翻译成功! 使用配置: ${config.baseUrl}${
             config.endpoint ? `/${config.endpoint}` : ''
           }`
@@ -390,7 +398,7 @@ export async function translate(text, options = {}) {
       errors.push(`配置${i + 1}(${config.baseUrl}): ${errorMsg}`)
 
       if (verbose) {
-        logger.log(`配置 ${i + 1} 失败: ${errorMsg}`)
+        logger.info(`配置 ${i + 1} 失败: ${errorMsg}`)
       }
 
       if (i < configs.length - 1) {
@@ -433,19 +441,36 @@ export function createCorsMiddleware() {
  * @returns { text, source_lang, target_lang }
  * @throws 参数错误或 token 验证失败时抛出异常
  */
-export async function parseTranslateParams(c, ACCESS_TOKEN) {
-  const requestParams = c.req.method === 'GET' ? c.req.query() : (c.req.method === 'POST' ? await c.req.json() : {});
-  const text = requestParams.text;
-  const source_lang = requestParams.source_lang || 'auto';
-  const target_lang = requestParams.target_lang;
-  const token = c.req.query().token;
-  
+export async function parseTranslateParams(c, ACCESS_TOKEN, verbose = false) {
+  const requestParams = c.req.method === 'GET' ? c.req.query() : (c.req.method === 'POST' ? await c.req.json() : {})
+  const text = requestParams.text
+  const source_lang = requestParams.source_lang || 'auto'
+  const target_lang = requestParams.target_lang
+  const token = c.req.query().token
+
   if (!['GET', 'POST'].includes(c.req.method)) {
+    if (verbose) {
+      logger.error('仅支持 GET 和 POST 请求')
+    }
+
     throw new Error('仅支持 GET 和 POST 请求')
   }
 
-  if (!text) throw new Error('缺少参数 text')
-  if (!target_lang) throw new Error('缺少参数 target_lang')
+  if (!text) {
+    if (verbose) {
+      logger.error('缺少参数 text')
+    }
+
+    throw new Error('缺少参数 text')
+  }
+
+  if (!target_lang) {
+    if (verbose) {
+      logger.error('缺少参数 target_lang')
+    }
+
+    throw new Error('缺少参数 target_lang')
+  }
 
   // 验证 ACCESS_TOKEN
   if (ACCESS_TOKEN) {
@@ -454,6 +479,10 @@ export async function parseTranslateParams(c, ACCESS_TOKEN) {
     const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
 
     if (token !== ACCESS_TOKEN && bearerToken !== ACCESS_TOKEN) {
+      if (verbose) {
+        logger.error('ACCESS_TOKEN 验证失败')
+      }
+
       throw new Error('ACCESS_TOKEN 验证失败')
     }
   }
@@ -524,7 +553,7 @@ export function healthCheckHandler(serviceName = 'Service is running...') {
  * @param {string} ACCESS_TOKEN - 访问令牌
  * @returns {Promise<Object>} 翻译结果
  */
-export async function handleTranslateRequest(c, ACCESS_TOKEN, options = { verbose: true }) {
+export async function handleTranslateRequest(c, ACCESS_TOKEN, options = { verbose: false }) {
   try {
     const { text, source_lang, target_lang } = await parseTranslateParams(c, ACCESS_TOKEN)
 
