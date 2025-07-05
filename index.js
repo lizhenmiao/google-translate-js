@@ -554,4 +554,12 @@ export async function handleTranslateRequest(c, ACCESS_TOKEN, options = { verbos
   }
 }
 
-export default { translate }
+export default {
+  logger,
+  translate,
+  createCorsMiddleware,
+  parseTranslateParams,
+  getApiDoc,
+  healthCheckHandler,
+  handleTranslateRequest
+}
