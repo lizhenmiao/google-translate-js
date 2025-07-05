@@ -291,10 +291,12 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text, verb
   try {
     data = await response.json()
 
-    if (data && data.length && Array.isArray(data)) {
+    if (data && Array.isArray(data) && data.length) {
+      const firstData = getValue(data, '[0]', '');
+      
       if (config.isTranslatePa) {
         return {
-          text: getValue(data, '[0][0]', ''),
+          text: getValue(firstData, '[0]', ''),
           sourceLang: getValue(data, '[1][0]', '') || sourceLang,
           targetLang
         }
@@ -302,16 +304,18 @@ async function tryTranslateWithConfig(config, sourceLang, targetLang, text, verb
 
       if (config.endpoint === 'single') {
         return {
-          text: (getValue(data, '[0]', null) || []).map(item => getValue(item, '[0]', '') || '').join(''),
+          text: (firstData || []).map(item => getValue(item, '[0]', '') || '').join(''),
           sourceLang: getValue(data, '[2]', null) || sourceLang,
           targetLang
         }
       }
 
       if (config.endpoint === 't') {
+        const isArr = firstData && Array.isArray(firstData) && firstData.length;
+        
         return {
-          text: getValue(data, '[0][0]', ''),
-          sourceLang: getValue(data, '[0][1]', '') || sourceLang,
+          text: (isArr ? getValue(firstData, '[0]', '') : firstData) || '',
+          sourceLang: (isArr ? getValue(firstData, '[1]', '') : '') || sourceLang,
           targetLang
         }
       }
