@@ -103,9 +103,9 @@ console.log(result.text) // Hello world
 import { translate, logger } from './index.js'
 
 // 添加日志监听器
-logger.on((message, level) => {
-  console.log(`[${level.toUpperCase()}] ${message}`)
-})
+logger.on((level, ...args) => {
+  console.log(`[翻译日志] [${level.toUpperCase()}]: `, ...args);
+});
 
 const result = await translate('Hello', {
   to: 'zh',
@@ -158,12 +158,12 @@ try {
 import { logger } from './index.js'
 
 // 添加日志监听器
-logger.on((message, level) => {
-  console.log(`[${level}] ${message}`)
-})
+logger.on((level, ...args) => {
+  console.log(`[翻译日志] [${level.toUpperCase()}]: `, ...args);
+});
 
 // 记录不同级别的日志
-logger.log('这是一条信息')
+logger.info('这是一条信息')
 logger.debug('这是调试信息')
 logger.error('这是错误信息')
 ```
@@ -191,6 +191,50 @@ const language = getValue(data, 'user.preferences.language', 'en')
 const missing = getValue(data, 'user.age', 0)
 ```
 
+## 部署指南
+
+### 部署到 [Deno Deploy](https://dash.deno.com/)
+
+1. 打开网站注册账号并登录
+2. 新建一个 Playground
+3. 复制并粘贴 **deno-example.js** - [点击查看文件](./deno-example.js)
+4. **Save & Deploy**
+5. 如果需要设置 `ACCESS_TOKEN`, 打开刚才创建的项目, 找到 `Settings`, 进行添加 `Environment Variables`, `key` 填写 `ACCESS_TOKEN`, `value` 就是你要设置的 `token` 的值, 例如 `123456`.
+
+### 部署到 Alpine Linux 3.20 系统
+
+#### 1. 下载部署文件
+
+**alpine-3.20-example.js** - [点击查看文件](./alpine-3.20-example.js)
+
+**alpine-3.20-start.sh** - [点击查看文件](./alpine-3.20-start.sh)
+
+#### 2. 部署步骤
+
+```
+# 1. 上传文件到 Alpine Linux 服务器
+alpine-3.20-example.js
+alpine-3.20-start.sh
+
+# 2. 可以进行更改 alpine-3.20-start.sh 文件中的 ACCESS_TOKEN 和 PORT 的值
+
+# 3. 修改好之后保存并给文件赋权
+chmod +x alpine-3.20-start.sh
+
+# 4. 启动服务
+./alpine-3.20-start.sh
+
+# 5. 停止服务
+# 查找 Deno 进程
+ps aux | grep deno
+
+# 停止服务 (使用进程ID)
+kill 12345
+
+# 强制停止服务
+kill -9 12345
+```
+
 ## 支持的语言
 
 查看完整的语言代码列表：[Google Cloud Translation 支持的语言](https://cloud.google.com/translate/docs/languages)
@@ -213,7 +257,3 @@ const missing = getValue(data, 'user.age', 0)
 2. 频繁请求可能会被限制，建议适当控制请求频率
 3. 网络环境可能影响不同端点的可用性，库会自动重试其他端点
 4. 启用 `verbose` 选项可以帮助调试连接问题
-
-## 许可证
-
-[MIT License](LICENSE)
