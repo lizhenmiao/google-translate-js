@@ -429,21 +429,13 @@ export function createCorsMiddleware() {
  * @throws 参数错误或 token 验证失败时抛出异常
  */
 export async function parseTranslateParams(c, ACCESS_TOKEN) {
-  let text, source_lang, target_lang, token
-
-  if (c.req.method === 'GET') {
-    const query = c.req.query()
-    text = query.text
-    source_lang = query.source_lang || 'auto'
-    target_lang = query.target_lang
-    token = query.token
-  } else if (c.req.method === 'POST') {
-    const body = await c.req.json()
-    text = body.text
-    source_lang = body.source_lang || 'auto'
-    target_lang = body.target_lang
-    token = body.token
-  } else {
+  const requestParams = c.req.method === 'GET' ? c.req.query() : (c.req.method === 'POST' ? await c.req.json() : {});
+  const text = requestParams.text;
+  const source_lang = requestParams.source_lang || 'auto';
+  const target_lang = requestParams.target_lang;
+  const token = c.req.query().token;
+  
+  if (!['GET', 'POST'].includes(c.req.method)) {
     throw new Error('仅支持 GET 和 POST 请求')
   }
 
