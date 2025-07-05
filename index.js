@@ -555,7 +555,9 @@ export function healthCheckHandler(serviceName = 'Service is running...') {
  */
 export async function handleTranslateRequest(c, ACCESS_TOKEN, options = { verbose: false }) {
   try {
-    const { text, source_lang, target_lang } = await parseTranslateParams(c, ACCESS_TOKEN)
+    const { verbose = false } = options || {}
+
+    const { text, source_lang, target_lang } = await parseTranslateParams(c, ACCESS_TOKEN, verbose)
 
     const googleResult = await translate(text, {
       from: source_lang,
