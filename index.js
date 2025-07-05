@@ -403,4 +403,120 @@ export async function translate(text, options = {}) {
   throw new Error(finalError)
 }
 
+/**
+ * 创建 CORS 中间件
+ * @returns {Function} CORS 中间件函数
+ */
+export function createCorsMiddleware() {
+  return async (c, next) => {
+    c.header('Access-Control-Allow-Origin', '*')
+    c.header('Access-Control-Allow-Methods', 'GET, POST')
+    c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    // 不处理 OPTIONS 请求，直接继续
+    if (c.req.method !== 'GET' && c.req.method !== 'POST') {
+      // 你也可以选择直接返回 405
+      return c.text('Method Not Allowed', 405)
+    }
+    await next()
+  }
+}
+
+/**
+ * 解析翻译请求参数并校验 ACCESS_TOKEN
+ * @param c Hono Context
+ * @param ACCESS_TOKEN 可选，验证用的 token
+ * @returns { text, source_lang, target_lang }
+ * @throws 参数错误或 token 验证失败时抛出异常
+ */
+export async function parseTranslateParams(c, ACCESS_TOKEN) {
+  let text, source_lang, target_lang, token
+
+  if (c.req.method === 'GET') {
+    const query = c.req.query()
+    text = query.text
+    source_lang = query.source_lang || 'auto'
+    target_lang = query.target_lang
+    token = query.token
+  } else if (c.req.method === 'POST') {
+    const body = await c.req.json()
+    text = body.text
+    source_lang = body.source_lang || 'auto'
+    target_lang = body.target_lang
+    token = body.token
+  } else {
+    throw new Error('仅支持 GET 和 POST 请求')
+  }
+
+  if (!text) throw new Error('缺少参数 text')
+  if (!target_lang) throw new Error('缺少参数 target_lang')
+
+  // 验证 ACCESS_TOKEN
+  if (ACCESS_TOKEN) {
+    // 从 Authorization 头解析 Bearer token
+    const authHeader = c.req.header('Authorization') || ''
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
+
+    if (token !== ACCESS_TOKEN && bearerToken !== ACCESS_TOKEN) {
+      throw new Error('ACCESS_TOKEN 验证失败')
+    }
+  }
+
+  return { text, source_lang, target_lang }
+}
+
+/**
+ * 获取 API 文档
+ * @param {Object} param0 - 参数对象
+ * @param {string} param0.description - 描述
+ * @param {string} param0.version - 版本
+ * @returns {Object} API 文档
+ */
+export function getApiDoc({ description = 'Google 翻译服务', version = '1.0.0' } = {}) {
+  return {
+    name: 'Google 翻译 API',
+    version,
+    description,
+    endpoints: {
+      '/translate': {
+        methods: ['GET', 'POST'],
+        description: '翻译文本',
+        parameters: {
+          text: '要翻译的文本（必需）',
+          source_lang: '源语言代码（可选，默认为 auto）',
+          target_lang: '目标语言代码（必需）'
+        },
+        examples: {
+          get: '/translate?text=Hello&source_lang=en&target_lang=zh&token=your_access_token',
+          post: {
+            url: '/translate',
+            body: { text: 'Hello', source_lang: 'en', target_lang: 'zh' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer your_access_token'
+            }
+          }
+        }
+      },
+      '/health': {
+        methods: ['GET'],
+        description: '健康检查'
+      }
+    }
+  }
+}
+
+/**
+ * 健康检查处理函数
+ * @param serviceName 服务名称，默认为 "Service is running"
+ */
+export function healthCheckHandler(serviceName = 'Service is running') {
+  return (c) => {
+    return c.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: serviceName
+    })
+  }
+}
+
 export default { translate }
