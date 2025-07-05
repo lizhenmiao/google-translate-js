@@ -519,4 +519,37 @@ export function healthCheckHandler(serviceName = 'Service is running') {
   }
 }
 
+/**
+ * 处理翻译请求
+ * @param {Object} c - Hono Context
+ * @param {string} ACCESS_TOKEN - 访问令牌
+ * @returns {Promise<Object>} 翻译结果
+ */
+export async function handleTranslateRequest(c, ACCESS_TOKEN, options = { verbose: true }) {
+  try {
+    const { text, source_lang, target_lang } = await parseTranslateParams(c, ACCESS_TOKEN)
+
+    const googleResult = await translate(text, {
+      from: source_lang,
+      to: target_lang,
+      ...options
+    })
+
+    return c.json({
+      code: 200,
+      alternatives: [],
+      data: googleResult.text,
+      source_lang: googleResult.sourceLang,
+      target_lang: googleResult.targetLang,
+      id: Date.now(),
+      method: 'Free'
+    })
+  } catch (error) {
+    return c.json({
+      code: 500,
+      message: error.message || '翻译失败'
+    })
+  }
+}
+
 export default { translate }
