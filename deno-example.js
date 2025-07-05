@@ -6,11 +6,12 @@ import { Hono } from "https://deno.land/x/hono@v4.3.11/mod.ts";
 import { logger, createCorsMiddleware, healthCheckHandler, handleTranslateRequest, getApiDoc } from "https://raw.githubusercontent.com/lizhenmiao/google-translate-js/refs/heads/main/index.js";
 
 const app = new Hono();
+
 const ACCESS_TOKEN = Deno.env.get("ACCESS_TOKEN") || "";
 
 // 日志监听
-logger.on((message, level) => {
-  console.log(`[翻译日志] ${level}: ${message}`);
+logger.on((level, ...args) => {
+  console.log(`[翻译日志] [${level.toUpperCase()}]: `, ...args);
 });
 
 // CORS 中间件
@@ -21,8 +22,14 @@ app.get("/health", healthCheckHandler());
 
 // 翻译接口
 app.route("/translate")
-  .get(async (c) => handleTranslateRequest(c, ACCESS_TOKEN))
-  .post(async (c) => handleTranslateRequest(c, ACCESS_TOKEN));
+  .get(async (c) => handleTranslateRequest(c, ACCESS_TOKEN, {
+    verbose: true,
+    randomizeAll: true
+  }))
+  .post(async (c) => handleTranslateRequest(c, ACCESS_TOKEN, {
+    verbose: true,
+    randomizeAll: true
+  }));
 
 // API 文档
 app.get("/", getApiDoc("基于 Cloudflare Worker + Hono 的 Google 翻译服务", "1.0.0"));
